@@ -16,5 +16,8 @@ def create_app(config_object: type = Config) -> Flask:
 
     # Imported for its side effect: registering the tables on `db.metadata`.
     from . import models  # noqa: F401
+    from .importer import register_commands
+
+    register_commands(app)
 
     return app
