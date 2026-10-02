@@ -1,0 +1,11 @@
+# Local-only files
+logs/
+CLAUDE.md
+INTERVIEW_NOTES.md
+.env
+
+# Python
+.venv/
+__pycache__/
+.pytest_cache/
+.ruff_cache/

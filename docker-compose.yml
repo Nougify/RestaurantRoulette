@@ -1,0 +1,22 @@
+services:
+  db:
+    image: postgis/postgis:17-3.5
+    environment:
+      POSTGRES_USER: roulette
+      POSTGRES_PASSWORD: roulette
+      POSTGRES_DB: roulette
+    ports:
+      # Host port 5433 so it does not clash with a locally installed Postgres on 5432.
+      - "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      # Runs once, when the data volume is first created.
+      - ./docker/20-create-test-db.sql:/docker-entrypoint-initdb.d/20-create-test-db.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U roulette -d roulette"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  pgdata:
