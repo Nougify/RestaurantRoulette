@@ -2,7 +2,7 @@
 
 Can't decide where to eat? RestaurantRoulette picks a random place near you, filtered by distance, diet, cuisine and whether it is open right now, and shows it on a map.
 
-> Work in progress: the database and the OpenStreetMap import are in place; the API and React frontend are next.
+> Work in progress: the database, the OpenStreetMap import and the search queries are in place; the API and React frontend are next.
 
 ## Stack
 
