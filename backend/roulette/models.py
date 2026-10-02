@@ -19,7 +19,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from .extensions import db
 
 # The OSM `amenity` values the site treats as places to eat.
-CATEGORIES = ("restaurant", "cafe", "fast_food", "pub", "bar")
+CATEGORIES = ("restaurant", "cafe", "fast_food")
 
 # The diets the site can filter by, from OSM `diet:*` tags.
 DIETS = ("vegetarian", "vegan", "halal", "kosher", "gluten_free")

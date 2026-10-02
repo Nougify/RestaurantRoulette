@@ -36,7 +36,7 @@ def upgrade():
     sa.Column('address', sa.Text(), nullable=True),
     sa.Column('phone', sa.Text(), nullable=True),
     sa.Column('website', sa.Text(), nullable=True),
-    sa.CheckConstraint("category IN ('restaurant', 'cafe', 'fast_food', 'pub', 'bar')", name=op.f('ck_restaurants_category')),
+    sa.CheckConstraint("category IN ('restaurant', 'cafe', 'fast_food')", name=op.f('ck_restaurants_category')),
     sa.PrimaryKeyConstraint('id', name=op.f('pk_restaurants')),
     sa.UniqueConstraint('osm_type', 'osm_id', name='uq_restaurants_osm')
     )
