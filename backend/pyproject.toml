@@ -1,0 +1,11 @@
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+extend-exclude = ["migrations"]
+
+[tool.ruff.lint]
+# pycodestyle, pyflakes, import sorting, bugbear, pyupgrade
+select = ["E", "W", "F", "I", "B", "UP"]
