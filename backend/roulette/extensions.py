@@ -4,6 +4,9 @@ Living in their own module lets models and views import `db` without importing t
 which would be a circular import.
 """
 
+from flask_cors import CORS
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 from flask_migrate import Migrate
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import MetaData
@@ -26,3 +29,6 @@ class Base(DeclarativeBase):
 
 db = SQLAlchemy(model_class=Base)
 migrate = Migrate()
+cors = CORS()
+# Counts requests per client IP address. No default limit: only routes that opt in are limited.
+limiter = Limiter(key_func=get_remote_address)

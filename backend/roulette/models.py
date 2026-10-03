@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from geoalchemy2 import Geography, WKTElement
+from geoalchemy2 import Geography, Geometry, WKTElement
 from sqlalchemy import (
     BigInteger,
     CheckConstraint,
@@ -11,10 +11,11 @@ from sqlalchemy import (
     Index,
     Text,
     UniqueConstraint,
+    cast,
     func,
 )
 from sqlalchemy.dialects.postgresql import ARRAY
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, column_property, mapped_column, relationship
 
 from .extensions import db
 
@@ -59,6 +60,10 @@ class Restaurant(db.Model):
     # `geography` measures in metres over the earth's surface, unlike planar `geometry`.
     # GeoAlchemy2 creates a GiST spatial index on this column automatically.
     location: Mapped[WKTElement] = mapped_column(Geography("POINT", srid=SRID))
+    # Not stored columns: PostGIS extracts them from `location` whenever a row is loaded,
+    # so the API can return plain numbers without decoding the binary point in Python.
+    lat: Mapped[float] = column_property(func.ST_Y(cast(location, Geometry)))
+    lon: Mapped[float] = column_property(func.ST_X(cast(location, Geometry)))
 
     cuisines: Mapped[list[str]] = mapped_column(ARRAY(Text), server_default="{}")
     diets: Mapped[list[str]] = mapped_column(ARRAY(Text), server_default="{}")

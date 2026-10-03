@@ -27,3 +27,18 @@ def clean_tables(app):
     db.session.commit()
     # Discard the session so objects from this test are not cached into the next one.
     db.session.remove()
+
+
+@pytest.fixture
+def client(app):
+    """A fake browser: makes requests to the app without starting a server."""
+    return app.test_client()
+
+
+@pytest.fixture
+def auth(client):
+    """Register a user and return the headers that sign requests in as them."""
+    response = client.post(
+        "/api/auth/register", json={"email": "diner@example.com", "password": "hungry4food"}
+    )
+    return {"Authorization": f"Bearer {response.json['token']}"}
