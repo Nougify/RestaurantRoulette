@@ -30,6 +30,8 @@ class Search:
     # "all": the place must cater for every listed diet. "any": at least one of them.
     diet_match: Literal["all", "any"] = "all"
     open_now: bool = False
+    # Places that must not be returned, such as ones the visitor has already been shown.
+    exclude_ids: tuple[int, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -62,6 +64,8 @@ def matching(search: Search) -> Select:
             else Restaurant.diets.overlap(diets)
         )
         query = query.where(condition)
+    if search.exclude_ids:
+        query = query.where(Restaurant.id.not_in(search.exclude_ids))
     if search.open_now:
         # Opening hours are evaluated in Python, but places with none recorded can never
         # count as open, so they are dropped here rather than fetched.

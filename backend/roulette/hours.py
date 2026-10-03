@@ -27,18 +27,22 @@ def parse(opening_hours: str) -> OpeningHours | None:
         return None
 
 
-def is_open(opening_hours: str | None, at: datetime) -> bool:
-    """Return True only if the place is known to be open at `at`.
-
-    Missing or unreadable hours count as closed: the site never claims a place is open
-    without evidence.
-    """
+def open_state(opening_hours: str | None, at: datetime) -> bool | None:
+    """Return whether the place is open at `at`, or None if its hours are missing or unreadable."""
     if opening_hours is None:
-        return False
+        return None
     schedule = parse(opening_hours)
     if schedule is None:
-        return False
+        return None
     if at.tzinfo is not None:
         # The schedule has no timezone of its own; give it the local wall-clock time.
         at = at.astimezone(LOCAL_TIMEZONE).replace(tzinfo=None)
     return schedule.is_open(at)
+
+
+def is_open(opening_hours: str | None, at: datetime) -> bool:
+    """Return True only if the place is known to be open at `at`.
+
+    Unknown counts as closed: the site never claims a place is open without evidence.
+    """
+    return open_state(opening_hours, at) is True
