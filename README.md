@@ -1,8 +1,8 @@
 # RestaurantRoulette
 
-Can't decide where to eat? RestaurantRoulette picks a random place near you, filtered by distance, diet, cuisine and whether it is open right now, and shows it on a map.
+Can't decide where to eat? Spin, and RestaurantRoulette deals you up to five random places near you, filtered by distance, diet, cuisine and whether they are open right now, and shows them on a map. Sign up to save favourites.
 
-> Work in progress: the backend API is complete; the React frontend is next.
+> Work in progress: the app works end to end locally; deployment is next.
 
 ## Stack
 
@@ -13,11 +13,11 @@ Can't decide where to eat? RestaurantRoulette picks a random place near you, fil
 | Database | PostgreSQL 17 + PostGIS |
 | Data access | SQLAlchemy 2, GeoAlchemy2, Alembic migrations |
 | Data | OpenStreetMap (Metro Vancouver) |
-| Frontend (planned) | React, TypeScript, Vite, Leaflet |
+| Frontend | React 19, TypeScript, Vite, Tailwind CSS, TanStack Query, React Router, Leaflet |
 
 ## Running locally
 
-Requires Docker and Python 3.13.
+Requires Docker, Python 3.13 and Node 24. Use two terminals: one for the API, one for the frontend.
 
 ```powershell
 docker compose up -d --wait          # PostGIS on localhost:5433
@@ -32,7 +32,13 @@ python -m pytest                     # run the tests
 flask run --debug                    # API on http://localhost:5000
 ```
 
-No configuration is needed for local development; the defaults match `docker-compose.yml`. Copy `backend/.env.example` to `backend/.env` to change the database, set `SECRET_KEY` (so logins survive a server restart) or allow other frontend origins.
+```powershell
+cd frontend
+npm install
+npm run dev                          # app on http://localhost:5173
+```
+
+No configuration is needed for local development; the defaults match `docker-compose.yml`. Copy `backend/.env.example` to `backend/.env` to change the database, set `SECRET_KEY` (so logins survive a server restart) or allow other frontend origins. The frontend reads the API's address from `VITE_API_URL` (see `frontend/.env.example`).
 
 ## API
 
@@ -42,7 +48,7 @@ All routes are under `/api` and return JSON.
 | --- | --- | --- | --- |
 | GET | `/api/health` | | Server and database are reachable |
 | GET | `/api/restaurants/nearby` | | Matching places, nearest first |
-| GET | `/api/restaurants/random` | | One matching place at random, or `null` |
+| GET | `/api/restaurants/spin` | | Up to `count` random matching places |
 | GET | `/api/filters` | | Categories, diets and the most common cuisines |
 | POST | `/api/auth/register` | | Create an account; returns a token |
 | POST | `/api/auth/login` | | Returns a token |
@@ -51,7 +57,7 @@ All routes are under `/api` and return JSON.
 | PUT | `/api/favourites/<id>` | Bearer | Save a place |
 | DELETE | `/api/favourites/<id>` | Bearer | Remove a saved place |
 
-Search parameters for `nearby` and `random`:
+Search parameters for `nearby` and `spin`:
 
 | Parameter | Meaning |
 | --- | --- |
@@ -63,12 +69,13 @@ Search parameters for `nearby` and `random`:
 | `diet_match` | `all` (default): every listed diet; `any`: at least one |
 | `open_now` | `true` to keep only places known to be open right now |
 | `limit` | `nearby` only; default 50, maximum 200 |
-| `exclude` | `random` only; ids not to return, e.g. places already shown |
+| `count` | `spin` only; how many places, 1 to 5 (default 1) |
+| `seen` | `spin` only; ids shown in earlier spins. At most one of them is picked again |
 
 Only explicit data counts: a place with no diet tags or no recorded opening hours never matches those filters.
 
 ```
-GET /api/restaurants/random?lat=49.2829&lon=-123.1207&radius=800&diet=vegan&open_now=true
+GET /api/restaurants/spin?lat=49.2829&lon=-123.1207&radius=800&diet=vegan&open_now=true&count=3
 ```
 
 Errors share one shape, for example a `422`:

@@ -12,10 +12,17 @@ from pydantic import BaseModel, BeforeValidator, EmailStr, Field, field_validato
 
 from .hours import open_state
 from .models import CATEGORIES, DIETS, Restaurant, User
-from .search import DEFAULT_LIMIT, DEFAULT_RADIUS_M, MAX_LIMIT, MAX_RADIUS_M, Search
+from .search import (
+    DEFAULT_LIMIT,
+    DEFAULT_RADIUS_M,
+    MAX_LIMIT,
+    MAX_RADIUS_M,
+    MAX_SPIN_COUNT,
+    Search,
+)
 
 MAX_LIST_ITEMS = 20
-MAX_EXCLUDED = 500
+MAX_SEEN = 500
 
 # Built from the same tuples the database constraint and the import use, so the accepted
 # values cannot drift apart.
@@ -35,7 +42,7 @@ CommaSeparated = BeforeValidator(split_commas)
 
 
 class SearchParams(BaseModel):
-    """Query parameters shared by the nearby and random endpoints."""
+    """Query parameters shared by the nearby and spin endpoints."""
 
     lat: float = Field(ge=-90, le=90)
     lon: float = Field(ge=-180, le=180)
@@ -52,7 +59,7 @@ class SearchParams(BaseModel):
         # Same normalisation as the import, so "Bubble Tea" finds "bubble_tea".
         return tuple(cuisine.lower().replace(" ", "_") for cuisine in cuisines)
 
-    def to_search(self, exclude_ids: tuple[int, ...] = ()) -> Search:
+    def to_search(self) -> Search:
         return Search(
             lat=self.lat,
             lon=self.lon,
@@ -62,7 +69,6 @@ class SearchParams(BaseModel):
             diets=self.diet,
             diet_match=self.diet_match,
             open_now=self.open_now,
-            exclude_ids=exclude_ids,
         )
 
 
@@ -70,9 +76,10 @@ class NearbyParams(SearchParams):
     limit: int = Field(default=DEFAULT_LIMIT, ge=1, le=MAX_LIMIT)
 
 
-class RandomParams(SearchParams):
-    # Ids the visitor has already been shown and should not be offered again.
-    exclude: Annotated[tuple[int, ...], CommaSeparated] = Field((), max_length=MAX_EXCLUDED)
+class SpinParams(SearchParams):
+    count: int = Field(default=1, ge=1, le=MAX_SPIN_COUNT)
+    # Ids shown in earlier spins; at most one of them may be picked again.
+    seen: Annotated[tuple[int, ...], CommaSeparated] = Field((), max_length=MAX_SEEN)
 
 
 class Credentials(BaseModel):

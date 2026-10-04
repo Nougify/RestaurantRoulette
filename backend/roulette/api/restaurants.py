@@ -1,4 +1,4 @@
-"""Public endpoints: search, the random pick, and what the filters can be set to."""
+"""Public endpoints: search, the roulette spin, and what the filters can be set to."""
 
 from flask import Blueprint, request
 from sqlalchemy import func, select
@@ -6,8 +6,8 @@ from sqlalchemy import func, select
 from ..extensions import db
 from ..hours import local_now
 from ..models import CATEGORIES, DIETS, Restaurant
-from ..schemas import NearbyParams, RandomParams, restaurant_json
-from ..search import DEFAULT_RADIUS_M, MAX_RADIUS_M, nearby, pick_random
+from ..schemas import NearbyParams, SpinParams, restaurant_json
+from ..search import DEFAULT_RADIUS_M, MAX_RADIUS_M, MAX_SPIN_COUNT, nearby, spin
 
 blueprint = Blueprint("restaurants", __name__)
 
@@ -34,17 +34,20 @@ def nearby_restaurants():
     }
 
 
-@blueprint.get("/restaurants/random")
-def random_restaurant():
-    """Return one random match, or `null` when nothing satisfies the filters.
+@blueprint.get("/restaurants/spin")
+def spin_restaurants():
+    """Return `count` random matches, at most one of which is in `seen`.
 
-    An empty result is an ordinary answer to the question, not an error, so it is a 200.
+    Fewer (or none) come back when not enough places match. An empty list is an ordinary
+    answer to the question, not an error, so it is still a 200.
     """
-    params = RandomParams.model_validate(request.args.to_dict())
+    params = SpinParams.model_validate(request.args.to_dict())
     now = local_now()
-    match = pick_random(params.to_search(exclude_ids=params.exclude), now=now)
+    matches = spin(params.to_search(), count=params.count, seen_ids=params.seen, now=now)
     return {
-        "restaurant": restaurant_json(match.restaurant, now, match.distance_m) if match else None
+        "restaurants": [
+            restaurant_json(match.restaurant, now, match.distance_m) for match in matches
+        ]
     }
 
 
@@ -61,4 +64,5 @@ def filters():
         "diets": list(DIETS),
         "cuisines": [{"name": name, "count": total} for name, total in rows],
         "radius": {"default": DEFAULT_RADIUS_M, "max": MAX_RADIUS_M},
+        "max_spin_count": MAX_SPIN_COUNT,
     }

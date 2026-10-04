@@ -74,6 +74,14 @@ def test_register_rejects_invalid_input(client, body, field):
     assert db.session.scalars(select(User)).all() == []
 
 
+def test_custom_validation_messages_read_naturally(client):
+    response = client.post("/api/auth/register", json={"email": EMAIL, "password": "nodigits"})
+
+    assert response.json["error"]["details"][0]["message"] == (
+        "Password must contain at least one number"
+    )
+
+
 @pytest.mark.parametrize("kwargs", [{"data": "not json"}, {"json": ["a", "list"]}, {}])
 def test_body_must_be_a_json_object(client, kwargs):
     response = client.post("/api/auth/register", **kwargs)

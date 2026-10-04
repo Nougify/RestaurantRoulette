@@ -1,7 +1,9 @@
 """Finding places to eat near a point."""
 
+from collections.abc import Collection, Iterator
 from dataclasses import dataclass
 from datetime import datetime
+from itertools import islice
 from typing import Literal
 
 from sqlalchemy import Select, func, select
@@ -14,6 +16,7 @@ DEFAULT_RADIUS_M = 2_000
 MAX_RADIUS_M = 25_000
 DEFAULT_LIMIT = 50
 MAX_LIMIT = 200
+MAX_SPIN_COUNT = 5
 
 
 @dataclass(frozen=True)
@@ -30,8 +33,6 @@ class Search:
     # "all": the place must cater for every listed diet. "any": at least one of them.
     diet_match: Literal["all", "any"] = "all"
     open_now: bool = False
-    # Places that must not be returned, such as ones the visitor has already been shown.
-    exclude_ids: tuple[int, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -64,8 +65,6 @@ def matching(search: Search) -> Select:
             else Restaurant.diets.overlap(diets)
         )
         query = query.where(condition)
-    if search.exclude_ids:
-        query = query.where(Restaurant.id.not_in(search.exclude_ids))
     if search.open_now:
         # Opening hours are evaluated in Python, but places with none recorded can never
         # count as open, so they are dropped here rather than fetched.
@@ -73,30 +72,55 @@ def matching(search: Search) -> Select:
     return query
 
 
-def run(search: Search, query: Select, limit: int, now: datetime | None) -> list[Match]:
-    """Run `query` and return up to `limit` matches, applying "open now" if asked for."""
-    if not search.open_now:
-        rows = db.session.execute(query.limit(limit))
-        return [Match(restaurant, distance_m) for restaurant, distance_m in rows]
+def stream(search: Search, query: Select, now: datetime | None) -> Iterator[Match]:
+    """Yield the rows of `query` in order, skipping closed places if "open now" was asked for.
 
+    Rows are fetched in chunks and only as far as the caller reads, so a caller that stops
+    after a few matches never loads the rest.
+    """
     now = now or local_now()
-    matches = []
-    # The limit cannot be applied in SQL, because an unknown number of rows will turn
-    # out to be closed. Rows are streamed in order and reading stops once enough are open.
     for restaurant, distance_m in db.session.execute(query).yield_per(200):
-        if is_open(restaurant.opening_hours, now):
-            matches.append(Match(restaurant, distance_m))
-            if len(matches) == limit:
-                break
-    return matches
+        if not search.open_now or is_open(restaurant.opening_hours, now):
+            yield Match(restaurant, distance_m)
 
 
 def nearby(search: Search, limit: int = DEFAULT_LIMIT, now: datetime | None = None) -> list[Match]:
     """Return the closest places that satisfy `search`, nearest first."""
-    return run(search, matching(search).order_by("distance_m", Restaurant.id), limit, now)
+    query = matching(search).order_by("distance_m", Restaurant.id)
+    if not search.open_now:
+        # Without "open now" every row counts, so the database can apply the limit.
+        # With it, an unknown number of rows will turn out closed, so `islice` stops
+        # reading the stream once enough open ones have been found.
+        query = query.limit(limit)
+    return list(islice(stream(search, query, now), limit))
 
 
-def pick_random(search: Search, now: datetime | None = None) -> Match | None:
-    """Return one place chosen at random from those that satisfy `search`, or None."""
-    matches = run(search, matching(search).order_by(func.random()), 1, now)
-    return matches[0] if matches else None
+def spin(
+    search: Search,
+    count: int = 1,
+    seen_ids: Collection[int] = (),
+    now: datetime | None = None,
+) -> list[Match]:
+    """Return up to `count` different places chosen at random from those that satisfy `search`.
+
+    At most one of them is a place in `seen_ids` (ones shown in earlier spins), so every
+    spin is mostly new. Fewer than `count` are returned when there are not enough places.
+    """
+    seen_ids = set(seen_ids)
+    query = matching(search).order_by(func.random())
+    if not search.open_now and not seen_ids:
+        query = query.limit(count)
+
+    picks = []
+    seen_used = False
+    # The rows arrive in random order, so taking them first come, first served is a fair
+    # random choice; a second already-seen place is simply skipped.
+    for match in stream(search, query, now):
+        if match.restaurant.id in seen_ids:
+            if seen_used:
+                continue
+            seen_used = True
+        picks.append(match)
+        if len(picks) == count:
+            break
+    return picks

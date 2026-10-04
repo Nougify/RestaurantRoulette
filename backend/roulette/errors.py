@@ -36,7 +36,11 @@ def register_error_handlers(app: Flask) -> None:
     @app.errorhandler(ValidationError)
     def handle_validation_error(error: ValidationError):
         details = [
-            {"field": ".".join(str(part) for part in problem["loc"]), "message": problem["msg"]}
+            {
+                "field": ".".join(str(part) for part in problem["loc"]),
+                # Pydantic prefixes messages raised by our own validators with "Value error, ".
+                "message": problem["msg"].removeprefix("Value error, "),
+            }
             for problem in error.errors()
         ]
         return error_response(422, "validation_error", "Some values are not valid.", details)

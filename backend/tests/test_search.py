@@ -5,7 +5,7 @@ import pytest
 
 from roulette.extensions import db
 from roulette.models import Restaurant, point
-from roulette.search import Search, nearby, pick_random
+from roulette.search import Search, nearby, spin
 
 # The search origin, and points at known distances north of it.
 # One degree of latitude is about 111.2 km, so 0.001 degrees is about 111 m.
@@ -133,39 +133,66 @@ def test_open_now_limit_counts_open_places_only():
     assert names(nearby(search(open_now=True), limit=2, now=FRIDAY_EVENING)) == ["open A", "open B"]
 
 
-def test_pick_random_returns_none_when_nothing_matches():
+def test_spin_returns_nothing_when_nothing_matches():
     add("outside", 5000)
 
-    assert pick_random(search()) is None
+    assert spin(search(), count=3) == []
 
 
-def test_pick_random_respects_filters_and_reports_distance():
+def test_spin_respects_filters_and_reports_distance():
     add("vegan", 300, diets=["vegan"])
     add("other", 100)
 
     for _ in range(10):
-        match = pick_random(search(diets=("vegan",)))
+        (match,) = spin(search(diets=("vegan",)))
         assert match.restaurant.name == "vegan"
         assert match.distance_m == pytest.approx(300, abs=2)
 
 
-def test_pick_random_only_picks_open_places_when_asked():
+def test_spin_only_picks_open_places_when_asked():
     add("open", opening_hours="Mo-Su 11:00-22:00")
     add("closed", opening_hours="Mo-Su 07:00-15:00")
     add("unknown")
 
-    picks = {
-        pick_random(search(open_now=True), now=FRIDAY_EVENING).restaurant.name for _ in range(15)
-    }
-
-    assert picks == {"open"}
+    assert names(spin(search(open_now=True), count=3, now=FRIDAY_EVENING)) == ["open"]
 
 
-def test_pick_random_reaches_every_match():
+def test_spin_returns_count_different_places():
+    for name in "abcdef":
+        add(name)
+
+    for _ in range(10):
+        picked = names(spin(search(), count=4))
+        assert len(picked) == len(set(picked)) == 4
+
+
+def test_spin_reaches_every_match():
     for name in ("a", "b", "c"):
         add(name)
 
-    picks = Counter(pick_random(search()).restaurant.name for _ in range(60))
+    picks = Counter(spin(search())[0].restaurant.name for _ in range(60))
 
     # Each has a 1-in-3 chance per draw; missing one in 60 draws is a ~1e-10 event.
     assert set(picks) == {"a", "b", "c"}
+
+
+def test_spin_includes_at_most_one_already_seen_place():
+    seen = {add(f"seen {n}").id for n in range(4)}
+    add("fresh 1")
+    add("fresh 2")
+
+    for _ in range(20):
+        picked = spin(search(), count=3, seen_ids=seen)
+        repeats = [m for m in picked if m.restaurant.id in seen]
+        assert len(picked) == 3
+        assert len(repeats) <= 1
+
+
+def test_spin_returns_fewer_rather_than_break_the_seen_rule():
+    seen = {add(f"seen {n}").id for n in range(3)}
+    add("fresh")
+
+    picked = spin(search(), count=3, seen_ids=seen)
+
+    assert len(picked) == 2
+    assert "fresh" in names(picked)

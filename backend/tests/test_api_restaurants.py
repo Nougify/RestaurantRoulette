@@ -126,39 +126,37 @@ def test_nearby_limit(client):
     assert names(response) == ["at 100", "at 200"]
 
 
-def test_random_returns_one_matching_restaurant(client):
+def test_spin_returns_matching_restaurants(client):
     add(1, "vegan", 300, diets=["vegan"])
     add(2, "other", 100)
 
-    response = client.get("/api/restaurants/random", query_string=ORIGIN | {"diet": "vegan"})
+    response = client.get(
+        "/api/restaurants/spin", query_string=ORIGIN | {"diet": "vegan", "count": 3}
+    )
 
     assert response.status_code == 200
-    assert response.json["restaurant"]["name"] == "vegan"
-    assert response.json["restaurant"]["distance_m"] in (299, 300, 301)
+    (restaurant,) = response.json["restaurants"]
+    assert restaurant["name"] == "vegan"
+    assert restaurant["distance_m"] in (299, 300, 301)
 
 
-def test_random_returns_null_when_nothing_matches(client):
+def test_spin_returns_an_empty_list_when_nothing_matches(client):
     add(1, "outside", 5000)
 
-    response = client.get("/api/restaurants/random", query_string=ORIGIN)
+    response = client.get("/api/restaurants/spin", query_string=ORIGIN)
 
-    assert (response.status_code, response.json) == (200, {"restaurant": None})
+    assert (response.status_code, response.json) == (200, {"restaurants": []})
 
 
-def test_random_never_returns_an_excluded_restaurant(client):
+def test_spin_repeats_at_most_one_seen_restaurant(client):
     seen = [add(1, "seen A"), add(2, "seen B")]
     add(3, "fresh")
-    query = ORIGIN | {"exclude": ",".join(str(id_) for id_ in seen)}
+    query = ORIGIN | {"count": 3, "seen": ",".join(str(id_) for id_ in seen)}
 
-    picks = {
-        client.get("/api/restaurants/random", query_string=query).json["restaurant"]["name"]
-        for _ in range(10)
-    }
-    assert picks == {"fresh"}
-
-    everything_seen = ORIGIN | {"exclude": "1,2,3"}
-    response = client.get("/api/restaurants/random", query_string=everything_seen)
-    assert response.json == {"restaurant": None}
+    for _ in range(10):
+        picked = names(client.get("/api/restaurants/spin", query_string=query))
+        assert len(picked) == 2
+        assert "fresh" in picked
 
 
 @pytest.mark.parametrize(
@@ -188,11 +186,15 @@ def test_nearby_rejects_invalid_input(client, query, field):
     assert [detail["field"] for detail in error["details"]] == [field]
 
 
-def test_random_rejects_invalid_exclude(client):
-    response = client.get("/api/restaurants/random", query_string=ORIGIN | {"exclude": "1,two"})
+@pytest.mark.parametrize(
+    "extra, field",
+    [({"seen": "1,two"}, "seen.1"), ({"count": 0}, "count"), ({"count": 6}, "count")],
+)
+def test_spin_rejects_invalid_input(client, extra, field):
+    response = client.get("/api/restaurants/spin", query_string=ORIGIN | extra)
 
     assert response.status_code == 422
-    assert response.json["error"]["details"][0]["field"] == "exclude.1"
+    assert response.json["error"]["details"][0]["field"] == field
 
 
 def test_radius_at_the_cap_is_accepted(client):
@@ -215,6 +217,7 @@ def test_filters_lists_choices_with_most_common_cuisines_first(client):
         "diets": ["vegetarian", "vegan", "halal", "kosher", "gluten_free"],
         "cuisines": [{"name": "pizza", "count": 2}, {"name": "italian", "count": 1}],
         "radius": {"default": 2000, "max": 25000},
+        "max_spin_count": 5,
     }
 
 
