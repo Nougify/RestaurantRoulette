@@ -14,12 +14,12 @@ from .models import CATEGORIES, DIETS, point
 truststore.inject_into_ssl()
 
 # Public Overpass servers, tried in order. They are free and shared, so being told to
-# come back later (429) or timing out under load (504) is normal.
+# come back later (429), failing under load (500) or timing out (504) is normal.
 OVERPASS_URLS = (
     "https://overpass-api.de/api/interpreter",
     "https://overpass.private.coffee/api/interpreter",
 )
-RETRYABLE_STATUSES = {429, 502, 503, 504}
+RETRYABLE_STATUSES = {429, 500, 502, 503, 504}
 USER_AGENT = "RestaurantRoulette/0.1 (https://github.com/Nougify/RestaurantRoulette)"
 
 # OSM relation 2218280 is the Metro Vancouver Regional District boundary. Overpass

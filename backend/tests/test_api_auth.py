@@ -181,3 +181,16 @@ def test_login_is_rate_limited(monkeypatch):
 
     assert statuses == [401, 401, 401, 429]
     assert client.get("/api/health").status_code == 200
+
+
+def test_rate_limit_counts_the_ip_the_proxy_reports(monkeypatch):
+    monkeypatch.setattr(limiter, "enabled", limiter.enabled)
+    client = create_app(RateLimitedConfig).test_client()
+
+    def login(forwarded_for):
+        headers = {"X-Forwarded-For": forwarded_for}
+        return client.post("/api/auth/login", json=CREDENTIALS, headers=headers).status_code
+
+    # The proxy appends the real client IP last; anything earlier was sent by the client.
+    assert [login(f"10.0.0.{n}, 1.1.1.1") for n in range(4)] == [401, 401, 401, 429]
+    assert login("2.2.2.2") == 401

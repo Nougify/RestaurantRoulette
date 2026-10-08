@@ -1,6 +1,7 @@
 """RestaurantRoulette backend: a Flask API over a PostGIS database of restaurants."""
 
 from flask import Flask
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 from .config import Config
 from .extensions import cors, db, limiter, migrate
@@ -11,6 +12,10 @@ def create_app(config_object: type = Config) -> Flask:
     # This is a JSON API with no files of its own to serve, so the /static route is off.
     app = Flask(__name__, static_folder=None)
     app.config.from_object(config_object)
+    # In production the app sits behind one reverse proxy (the host's load balancer), so
+    # the visitor's IP arrives in X-Forwarded-For. Trusting exactly one hop stops a client
+    # from faking its IP (and dodging the rate limit) by sending that header itself.
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1)
 
     db.init_app(app)
     migrate.init_app(app, db)
