@@ -13,7 +13,7 @@ export function Layout() {
     <div className="flex h-full flex-col">
       <header className="flex h-14 shrink-0 items-center justify-between border-b border-zinc-200 bg-white px-5">
         <Link to="/" className="flex items-center gap-2 font-semibold tracking-tight">
-          <img src="/favicon.svg" alt="" className="h-6 w-6" />
+          <img src={`${import.meta.env.BASE_URL}favicon.svg`} alt="" className="h-6 w-6" />
           RestaurantRoulette
         </Link>
         <nav className="flex items-center gap-5">

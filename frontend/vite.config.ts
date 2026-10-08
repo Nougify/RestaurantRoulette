@@ -4,5 +4,6 @@ import { defineConfig } from 'vite'
 
 // https://vite.dev/config/
 export default defineConfig({
+  base: '/RestaurantRoulette/',
   plugins: [react(), tailwindcss()],
 })

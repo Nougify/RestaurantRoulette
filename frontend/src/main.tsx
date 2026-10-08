@@ -24,7 +24,7 @@ const queryClient = new QueryClient({
 // the auth state. AuthProvider uses the query cache, so it must sit inside it.
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <BrowserRouter>
+    <BrowserRouter basename={import.meta.env.BASE_URL}>
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
           <App />
