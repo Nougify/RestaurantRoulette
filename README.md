@@ -2,7 +2,7 @@
 
 Can't decide where to eat? Spin, and RestaurantRoulette deals you up to five random places near you, filtered by distance, diet, cuisine and whether they are open right now, and shows them on a map. Sign up to save favourites.
 
-> Work in progress: the app works end to end locally; deployment is next.
+> https://nougify.github.io/RestaurantRoulette/
 
 ## Stack
 
